@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bz": "^0.4.5",
     "chalk": "^2.1.0",
     "lodash": "^4.17.4",
     "node-emoji": "^1.8.1",
