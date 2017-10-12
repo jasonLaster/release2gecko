@@ -1,5 +1,6 @@
 const path = require("path");
-const { exec, log, format, info, action } = require("./src/utils");
+const { exec } = require("./src/utils");
+const { log, format, info, action } = require("./src/utils/log");
 const opn = require("opn");
 const gecko = require("./src/gecko");
 
@@ -81,7 +82,10 @@ function viewBug(config) {
   process.exit(0);
 }
 
-function viewTry(config) {}
+function viewTry(config) {
+  opn(config.try);
+  process.exit(0);
+}
 
 module.exports = {
   createRelease,

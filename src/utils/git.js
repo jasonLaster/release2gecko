@@ -1,4 +1,5 @@
-const { exec, info, log } = require("../utils");
+const { info, log } = require("./log");
+const { exec } = require("../utils");
 const chalk = require("chalk");
 
 function branchExists(branch) {
@@ -12,19 +13,12 @@ function hasChanges() {
 }
 
 function showChanges(config) {
-  if (!hasChanges(config)) {
-    info(":blue_book: Nothing changed");
-    return;
-  }
-
-  info("Gecko changes");
-
-  const out = exec(`git diff --stat`).stdout.replace(
+  const diff = exec(`git diff --stat`).stdout.replace(
     /\| (\d+) ([+]*)([-]*)/g,
     `| $1 ${chalk.green("$2")}${chalk.red("$3")}`
   );
 
-  log(out);
+  log(diff);
 }
 
 module.exports = {

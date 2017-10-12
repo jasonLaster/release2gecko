@@ -3,7 +3,8 @@ const shell = require("shelljs");
 const chalk = require("chalk");
 
 const { branchExists, hasChanges, showChanges } = require("./utils/git");
-const { exec, log, info, error, action } = require("./utils");
+const { exec } = require("./utils");
+const { log, info, error, action } = require("./utils/log");
 const { getPatchFilePath } = require("./utils/patch");
 const { updateConfig } = require("./config");
 
@@ -44,9 +45,12 @@ async function cleanupMc(config) {
   return {};
 }
 
-function _showChanges(config) {
+function showGeckoChanges(config) {
   shell.cd(config.mcPath);
-  showChanges(config);
+  if (hasChanges(config)) {
+    info(`Gecko changes:`);
+    showChanges(config);
+  }
 }
 
 function updateCentral(config) {
@@ -82,9 +86,20 @@ function createBranch(config) {
   exec(`git checkout -b ${branch}`);
 }
 
+function fileExists(filePath) {
+  const out = exec(`ls -l ${filePath}`);
+  return out.stdout.trim() !== 0;
+}
+
 function buildFirefox(config) {
   log(":seedling: Building Firefox");
   shell.cd(config.mcPath);
+
+  if (!fileExists("mozconfig")) {
+    error("Uhoh, the mozconfig does not exist.");
+    return { exit: true };
+  }
+
   exec(`./mach clobber; ./mach build`);
 }
 
@@ -166,7 +181,7 @@ function tryRun(config) {
     `./mach try  -b do -p linux -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none`
   );
 
-  const match = out.stdout.match(/(http.*treeherder.*)/);
+  const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
   if (match) {
     const tryRun = match[0];
     info(`> ${tryRun}`);
@@ -179,7 +194,7 @@ function tryRun(config) {
 module.exports = {
   cleanupMc,
   hasChanges,
-  showChanges: _showChanges,
+  showGeckoChanges,
   rebaseBranch,
   updateCentral,
   buildFirefox,
