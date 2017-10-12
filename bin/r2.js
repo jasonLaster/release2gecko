@@ -1,20 +1,22 @@
 const inquirer = require("inquirer");
 
 const { getConfig, updateConfig } = require("../src/config");
-const { createRelease, updateRelease, viewBug, viewTry } = require("../index");
+const cmds = require("../index");
 
 const tasks = {
-  "create release": createRelease,
-  "update release": updateRelease,
-  "view current bug": viewBug,
-  "view current try run": viewTry
+  "Create release": cmds.createRelease,
+  "Update release": cmds.updateRelease,
+  "View current bug": cmds.viewBug,
+  "View current try run": cmds.viewTry,
+  "Remove GH Branches": cmds.pruneGHBranches,
+  "Remove MC Branches": cmds.pruneMCBranches
 };
 
 const taskCmd = {
-  "-c": createRelease,
-  "-u": updateRelease,
-  "-b": viewBug,
-  "-t": viewTry
+  "-c": cmds.createRelease,
+  "-u": cmds.updateRelease,
+  "-b": cmds.viewBug,
+  "-t": cmds.viewTry
 };
 
 function start() {
@@ -29,13 +31,7 @@ function start() {
         type: "list",
         name: "task",
         message: "Release 2 Gecko",
-        choices: [
-          "Create release",
-          "Update release",
-          "View current bug",
-          "View current try run"
-        ],
-        filter: val => val.toLowerCase()
+        choices: Object.keys(tasks)
       }
     ])
     .then(answers => tasks[answers.task](config));

@@ -1,18 +1,16 @@
 const path = require("path");
+const shell = require("shelljs");
+
 const { exec } = require("./src/utils");
 const { log, format, info, action } = require("./src/utils/log");
 const opn = require("opn");
 const gecko = require("./src/gecko");
 
 const github = require("./src/github");
+const git = require("./src/utils/git");
 
 const { createBug, uploadPatch } = require("./src/bugzilla");
 const { getConfig, updateConfig } = require("./src/config");
-//
-// const config = {
-//   mcPath: ,
-//   ghPath: path.normalize()
-// };
 
 async function createRelease(config) {
   const { exit } = await gecko.cleanupMc(config);
@@ -62,12 +60,12 @@ async function updateRelease(config, options) {
   gecko.updateCommit(config);
   gecko.makePatch(config);
   gecko.buildFirefox(config);
-  // const results = gecko.runDebuggerTests(config);
-  //
-  // // NOTE: headless mode has 5 known failutes
-  // if (results.match(/Failed: 5/)) {
-  //   gecko.tryRun(config);
-  // }
+  const results = gecko.runDebuggerTests(config);
+
+  // NOTE: headless mode has 5 known failutes
+  if (results.match(/Failed: 5/)) {
+    gecko.tryRun(config);
+  }
 
   // open firefox
   // and prompt to proceed
@@ -87,10 +85,22 @@ function viewTry(config) {
   process.exit(0);
 }
 
+function pruneGHBranches(config) {
+  shell.cd(config.ghPath);
+  git.deleteBranches();
+}
+
+function pruneMCBranches(config) {
+  shell.cd(config.mcPath);
+  git.deleteBranches();
+}
+
 module.exports = {
   createRelease,
   bumpVersion,
   updateRelease,
   viewBug,
-  viewTry
+  viewTry,
+  pruneMCBranches,
+  pruneGHBranches
 };
