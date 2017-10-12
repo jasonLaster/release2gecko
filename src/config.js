@@ -24,6 +24,7 @@ function updateConfig(config, updates) {
     ghPath: replaceHomeDir(config.ghPath)
   };
 
+  Object.assign(config, newConfig);
   fs.writeFileSync(
     path.join(__dirname, configPath),
     JSON.stringify(newConfig, null, 2)

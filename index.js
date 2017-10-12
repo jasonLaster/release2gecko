@@ -1,20 +1,9 @@
 const path = require("path");
 const { exec, log, format, info, action } = require("./src/utils");
 const opn = require("opn");
-const {
-  cleanupMc,
-  hasChanges,
-  showChanges,
-  updateCentral,
-  createBranch,
-  buildFirefox,
-  createCommit,
-  updateCommit,
-  checkoutBranch,
-  makePatch
-} = require("./src/gecko");
+const gecko = require("./src/gecko");
 
-const { makeBundle } = require("./src/github");
+const github = require("./src/github");
 
 const { createBug, uploadPatch } = require("./src/bugzilla");
 const { getConfig, updateConfig } = require("./src/config");
@@ -25,17 +14,25 @@ const { getConfig, updateConfig } = require("./src/config");
 // };
 
 async function createRelease(config) {
-  const { exit } = await cleanupMc(config);
+  const { exit } = await gecko.cleanupMc(config);
   if (exit) {
     return info("wave", "Exiting!");
   }
 
   updateConfig(config, { version: 1 });
-  // updateCentral(config);
-  createBranch(config);
-  makeBundle(config);
-  createCommit(config);
-  buildFirefox(config);
+  gecko.updateCentral(config);
+  gecko.createBranch(config);
+  github.makeBundle(config);
+  gecko.createCommit(config);
+
+  gecko.buildFirefox(config);
+
+  const results = gecko.runDebuggerTests(config);
+
+  // NOTE: headless mode has 5 known failutes
+  if (results.match(/Failed: 5/)) {
+    gecko.tryRun(config);
+  }
 }
 
 function bumpVersion(config) {
@@ -44,27 +41,37 @@ function bumpVersion(config) {
   updateConfig(config, { version });
 }
 
-async function updateRelease(config) {
-  // checkoutBranch(config);
-  //
-  // makeBundle(config);
-  //
-  // if (!hasChanges(config)) {
-  //   info(":blue_book: Nothing changed");
-  //   return;
-  // }
-  //
-  // bumpVersion(config);
-  // showChanges(config);
-  //
-  // updateCommit(config);
+async function updateRelease(config, options) {
+  if (false && options.shouldFetch) {
+    const { exit } = await gecko.cleanupMc(config);
+    if (exit) {
+      return info("wave", "Exiting!");
+    }
 
-  // buildFirefox(config);
-  // run tests
+    gecko.updateCentral(config);
+    gecko.checkoutBranch(config);
+    gecko.rebaseBranch(config);
+  }
+
+  github.makeBundle(config);
+
+  gecko.showChanges(config);
+
+  bumpVersion(config);
+  gecko.updateCommit(config);
+  gecko.makePatch(config);
+  gecko.buildFirefox(config);
+  // const results = gecko.runDebuggerTests(config);
+  //
+  // // NOTE: headless mode has 5 known failutes
+  // if (results.match(/Failed: 5/)) {
+  //   gecko.tryRun(config);
+  // }
+
   // open firefox
   // and prompt to proceed
   // makePatch(config);
-  await uploadPatch(config);
+  // await uploadPatch(config);
   // start try run
 }
 

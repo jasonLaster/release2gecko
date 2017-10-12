@@ -1,8 +1,8 @@
 {
   "mcPath": "~/src/mozilla/gecko",
   "ghPath": "~/src/mozilla/debugger.html",
-  "bugId": 1406697,
-  "branch": "10-8",
+  "bugId": 1407840,
+  "branch": "10-11",
   "reviewer": "jdescottes",
-  "version": 30
+  "version": 3
 }

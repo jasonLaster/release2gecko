@@ -2,15 +2,10 @@ const inquirer = require("inquirer");
 const shell = require("shelljs");
 const chalk = require("chalk");
 
-const { exec, log, info, error } = require("./utils");
+const { branchExists, hasChanges, showChanges } = require("./utils/git");
+const { exec, log, info, error, action } = require("./utils");
 const { getPatchFilePath } = require("./utils/patch");
-
-function hasChanges(config) {
-  shell.cd(config.mcPath);
-
-  const res = exec(`git status -s`);
-  return res.stdout.trim().length !== 0;
-}
+const { updateConfig } = require("./config");
 
 function clearChanges(config) {
   exec(`git clean -fx && git reset --hard HEAD`);
@@ -33,10 +28,9 @@ async function cleanupMc(config) {
   info(":question: Checking for changes...");
 
   shell.cd(config.mcPath);
-  if (hasChanges()) {
+  if (hasChanges(config)) {
     info(":question: Hmm, there are changes.");
-
-    console.log(exec(`git diff --stat`));
+    showChanges();
 
     const nuke = await promptChanges();
     if (!nuke) {
@@ -48,6 +42,11 @@ async function cleanupMc(config) {
   }
 
   return {};
+}
+
+function _showChanges(config) {
+  shell.cd(config.mcPath);
+  showChanges(config);
 }
 
 function updateCentral(config) {
@@ -65,14 +64,16 @@ function checkoutBranch(config) {
   return exec(`git checkout ${branch}`);
 }
 
+function rebaseBranch(config) {
+  const branch = config.branch;
+  return exec(`git rebase bookmarks/central`);
+}
+
 function createBranch(config) {
   const date = new Date();
   const branch = `${date.getMonth() + 1}-${date.getDate()}`;
 
-  const out = exec(`git rev-parse --verify ${branch}`, { silent: true });
-  const exists = out.code === 0;
-
-  if (exists) {
+  if (branchExists(branch)) {
     return checkoutBranch(config, branch);
   }
 
@@ -87,24 +88,14 @@ function buildFirefox(config) {
   exec(`./mach clobber; ./mach build`);
 }
 
-function showChanges(config) {
-  shell.cd(config.mcPath);
-
-  info(":question: Gecko changes");
-  const out = exec(`git diff --stat`).replace(
-    /\| (\d+) ([+]*)([-]*)/g,
-    `| $1 ${chalk.green("$2")}${chalk.red("$3")}`
-  );
-
-  console.log(out.stdout);
+function commitMsg(config) {
+  return `Bug ${config.bugId} - Update Debugger frontend (${config.branch}). r=${config.reviewer}`;
 }
 
 function createCommit(config) {
   log(":dizzy: Creating commit");
   shell.cd(config.mcPath);
-  const msg = `Bug ${config.bugId} - Update Debugger frontend (${config.branch}). r=${config.reviewer}`;
-
-  showChanges();
+  const msg = commitMsg(config);
   exec(`git add .`);
   exec(`git commit -m "${msg}"`);
 }
@@ -113,7 +104,23 @@ function updateCommit(config) {
   log(":dizzy: Updating commit");
   shell.cd(config.mcPath);
   exec(`git add .`);
-  exec(`git commit --amend --no-edit -n`);
+
+  // 1. create new patch branch
+  // 2. commit the changes
+  // 3. rebase the changes
+  // 4. squash the commits
+  const patchBranch = `${config.branch}-${config.version}`;
+
+  exec(`git add .`);
+  exec(`git commit -m "Patch ${config.version}"`);
+
+  info(`:book: View changes at branch ${patchBranch}`);
+  exec(`git checkout -b ${patchBranch}`);
+  exec(`git checkout ${config.branch}`);
+
+  exec(`git reset --soft HEAD~2`);
+  const msg = commitMsg(config);
+  exec(`git commit -m "${msg}"`);
 }
 
 function makePatch(config) {
@@ -127,15 +134,60 @@ function makePatch(config) {
   `);
 }
 
+function runDebuggerTests(config) {
+  log(":runner: Running debugger tests");
+
+  shell.cd(config.mcPath);
+  const out = exec(
+    `./mach mochitest --setenv MOZ_HEADLESS=1 devtools/client/debugger/new`
+  );
+
+  if (out.stdout) {
+    const match = out.stdout.match(/(Browser Chrome Test Summary(.|\n)*)/);
+    if (match) {
+      log(match[0]);
+      return match[0];
+    } else {
+      log(out.stdout);
+      return out.stdout;
+    }
+  }
+
+  log(out);
+  return out;
+}
+
+function tryRun(config) {
+  action(":cactus: Creating a try run");
+
+  shell.cd(config.mcPath);
+
+  const out = exec(
+    `./mach try  -b do -p linux -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none`
+  );
+
+  const match = out.stdout.match(/(http.*treeherder.*)/);
+  if (match) {
+    const tryRun = match[0];
+    info(`> ${tryRun}`);
+    updateConfig(config, { try: tryRun });
+  } else {
+    log(out);
+  }
+}
+
 module.exports = {
   cleanupMc,
   hasChanges,
-  showChanges,
+  showChanges: _showChanges,
+  rebaseBranch,
   updateCentral,
   buildFirefox,
   createBranch,
   createCommit,
   updateCommit,
   checkoutBranch,
-  makePatch
+  makePatch,
+  runDebuggerTests,
+  tryRun
 };

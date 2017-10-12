@@ -12,6 +12,20 @@ function makeBundle(config) {
   }
 }
 
+function createBranch(branch) {
+  action(`:shovel: Creating Branch`);
+
+  if (branchExists(branch)) {
+    exec(`git checkout ${branch}`);
+  }
+
+  exec(`git clean -fx && git reset --hard HEAD`);
+  exec(`git checkout master`);
+  exec(`git rpull`);
+
+  exec();
+}
+
 module.exports = {
   makeBundle
 };
