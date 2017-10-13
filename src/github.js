@@ -1,6 +1,6 @@
 const { exec } = require("./utils");
-const { log, action, error } = require("./utils/log");
-const { hasChanges, showChanges } = require("./github");
+const { log, action, error, info } = require("./utils/log");
+const { hasChanges, showChanges } = require("./utils/git");
 const shell = require("shelljs");
 //
 // async function commitChanges() {
@@ -32,8 +32,8 @@ function makeBundle(config) {
     return { exit: true };
   }
 
-  exec(`git add assets/module-manifest.json`);
-  exec(`git commit -m "Update Module Manifest"`);
+  exec(`git add .`);
+  exec(`git commit -m \"Update Release (${config.version})\"`);
   exec(`git push me ${config.branch}`);
 }
 

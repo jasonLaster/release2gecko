@@ -1,9 +1,10 @@
 {
   "mcPath": "~/src/mozilla/gecko",
   "ghPath": "~/src/mozilla/debugger.html",
-  "bugId": 1407840,
-  "branch": "10-11",
-  "reviewer": "jdescottes",
-  "version": 4,
-  "try": "https://treeherder.mozilla.org/#/jobs?repo=try&revision=a13c46c696eab29db98bc233907597ebd90beebb"
+  "bugId": 1406697,
+  "branch": "10-12",
+  "reviewer": "jlaster@mozilla.com",
+  "version": 5,
+  "try": "https://treeherder.mozilla.org/#/jobs?repo=try&revision=a38ccb4166909a0f3e3cd859e32bd39e3082db66",
+  "attachment": 8918114
 }

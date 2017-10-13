@@ -6,6 +6,10 @@ const { getPatchText, getPatchName } = require("./utils/patch");
 let bugzilla;
 
 async function login() {
+  if (bugzilla) {
+    return bugzilla;
+  }
+
   bugzilla = bz.createClient({
     url: "https://api-dev.bugzilla.mozilla.org/rest/",
     api_key,
@@ -15,9 +19,10 @@ async function login() {
   return bugzilla;
 }
 
-async function getBug(id) {
+async function getBug(config) {
+  await login();
   return new Promise(r => {
-    bugzilla.getBug(id, function(error, bug) {
+    bugzilla.getBug(config.bugId, function(error, bug) {
       if (!error) {
         r(bug);
       } else {
@@ -27,7 +32,36 @@ async function getBug(id) {
   });
 }
 
-async function createBug(bug) {
+async function getAttachments(config) {
+  await login();
+  return new Promise(r => {
+    bugzilla.bugAttachments(config.bugId, function(error, resp) {
+      if (!error) {
+        r(resp);
+      } else {
+        console.log(error);
+      }
+    });
+  });
+}
+
+async function createBug(config, overrides) {
+  await login();
+
+  const bug = {
+    summary: `Update Debugger Release (${config.branch})`,
+    product: "Firefox",
+    component: "Developer Tools: Debugger",
+    version: "57 Branch",
+    // comments: [
+    //   // {
+    //   //   text: "something",
+    //   //   creator: user
+    //   // }
+    // ]
+    ...overrides
+  };
+
   return new Promise(resolve => {
     bugzilla.createBug(bug, (e, r) => {
       if (e) {
@@ -40,30 +74,20 @@ async function createBug(bug) {
   });
 }
 
-var bug = {
-  summary: "test bug",
-  product: "Firefox",
-  component: "Developer Tools: Debugger",
-  version: "57 Branch"
-  // comments: [
-  //   // {
-  //   //   text: "something",
-  //   //   creator: user
-  //   // }
-  // ]
-};
+async function createAttachment(config) {
+  const { bugId, reviewer } = config;
 
-async function createAttachment(
-  bugId,
-  { text, reviewer, patchName },
-  overrides = {}
-) {
   const reviewerFlag = {
     name: "review",
     status: "?",
     requestee: reviewer,
     new: true
   };
+
+  const patchText = getPatchText(config);
+  const patchName = getPatchName(config);
+
+  await login();
   return new Promise(resolve => {
     bugzilla.createAttachment(
       bugId,
@@ -71,16 +95,36 @@ async function createAttachment(
         ids: [bugId],
         is_patch: true,
         comment: "",
-        summary: "",
+        summary: patchName,
         content_type: "text/plain",
-        data: new Buffer(text).toString("base64"),
+        data: new Buffer(patchText).toString("base64"),
         file_name: patchName,
-        obsoletes: [], // we'll need to add this
+        obsolete: ["8918081"], // we'll need to add this
         is_private: false,
-        flags: [reviewerFlag],
-        ...overrides
+        flags: [reviewerFlag]
       },
       function(error, response) {
+        console.log({ error, response });
+        resolve(response);
+      }
+    );
+  });
+}
+
+async function deleteAttachment(config) {
+  const { bugId, reviewer } = config;
+
+  await login();
+  console.log(`deleting ${config.attachment}`);
+  return new Promise(resolve => {
+    bugzilla.updateAttachment(
+      config.attachment,
+      {
+        ids: [config.attachment],
+        is_obsolete: true
+      },
+      function(error, response) {
+        console.log({ error, response });
         resolve(response);
       }
     );
@@ -88,8 +132,9 @@ async function createAttachment(
 }
 
 async function createComment(bugId, text) {
+  await login();
   return new Promise(resolve => {
-    bugzilla.createComment(bugId, { comment: text }, (e, r) => {
+    bugzilla.addComment(bugId, { comment: text }, (e, r) => {
       resolve(r);
     });
   });
@@ -136,7 +181,10 @@ async function uploadPatch(config) {
 module.exports = {
   createAttachment,
   createComment,
+  deleteAttachment,
   createBug,
   login,
-  uploadPatch
+  uploadPatch,
+  getBug,
+  getAttachments
 };

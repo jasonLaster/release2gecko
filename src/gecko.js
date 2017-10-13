@@ -7,6 +7,7 @@ const { exec } = require("./utils");
 const { log, info, error, action } = require("./utils/log");
 const { getPatchFilePath } = require("./utils/patch");
 const { updateConfig } = require("./config");
+const bugzilla = require("./bugzilla");
 
 function clearChanges(config) {
   exec(`git clean -fx && git reset --hard HEAD`);
@@ -54,7 +55,7 @@ function showGeckoChanges(config) {
 }
 
 function updateCentral(config) {
-  log(":runner: Updating Central!");
+  action(":runner: Updating Central!");
 
   shell.cd(config.mcPath);
   exec(`git checkout bookmarks/central`);
@@ -82,7 +83,7 @@ function createBranch(config) {
   }
 
   updateConfig(config, { branch });
-  info(`:ledger: Creating branch ${branch}`);
+  info(`:ledger: To view Changes: git show ${branch}`);
   exec(`git checkout -b ${branch}`);
 }
 
@@ -92,7 +93,7 @@ function fileExists(filePath) {
 }
 
 function buildFirefox(config) {
-  log(":seedling: Building Firefox");
+  action(":seedling: Building Firefox");
   shell.cd(config.mcPath);
 
   if (!fileExists("mozconfig")) {
@@ -100,7 +101,13 @@ function buildFirefox(config) {
     return { exit: true };
   }
 
-  exec(`./mach clobber; ./mach build`);
+  const res = exec(`./mach clobber && ./mach build`);
+  if (res.code !== 0) {
+    info(`STDOUT`);
+    log(res.stdout);
+    info(`STDERR`);
+    log(res.stderr);
+  }
 }
 
 function commitMsg(config) {
@@ -108,7 +115,7 @@ function commitMsg(config) {
 }
 
 function createCommit(config) {
-  log(":dizzy: Creating commit");
+  action(":dizzy: Creating commit");
   shell.cd(config.mcPath);
   const msg = commitMsg(config);
   exec(`git add .`);
@@ -116,7 +123,7 @@ function createCommit(config) {
 }
 
 function updateCommit(config) {
-  log(":dizzy: Updating commit");
+  action(":dizzy: Updating commit");
   shell.cd(config.mcPath);
   exec(`git add .`);
 
@@ -147,10 +154,16 @@ function makePatch(config) {
     git hgp > $FILE
     less -m -N -g -i -J --underline-special --SILENT $FILE
   `);
+
+  // delete the old attachment
+  // await bugzilla.deleteAttachment(config);
+
+  const { id } = bugzilla.createAttachment(config);
+  updateConfig(config, { attachment: id });
 }
 
 function runDebuggerTests(config) {
-  log(":runner: Running debugger tests");
+  action(":runner: Running debugger tests");
 
   shell.cd(config.mcPath);
   const out = exec(
@@ -177,15 +190,24 @@ function tryRun(config) {
 
   shell.cd(config.mcPath);
 
-  const out = exec(
-    `./mach try  -b do -p linux -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none`
-  );
+  let out;
+
+  if (true) {
+    out = exec(
+      `./mach try  -b do -p linux64 -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none --artifact`
+    );
+  } else {
+    // if we need to run a broader test...
+    out = exec(`./mach try -b o -p linux64 -u mochitests -t none`);
+  }
 
   const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
   if (match) {
     const tryRun = match[0];
-    info(`> ${tryRun}`);
     updateConfig(config, { try: tryRun });
+
+    info(`> ${tryRun}`);
+    bugzilla.createComment(config.bugId, tryRun);
   } else {
     log(out);
   }
@@ -193,7 +215,6 @@ function tryRun(config) {
 
 module.exports = {
   cleanupMc,
-  hasChanges,
   showGeckoChanges,
   rebaseBranch,
   updateCentral,

@@ -1,3 +1,5 @@
+#!/Users/jlaster/.nvm/versions/node/v8.5.0/bin/node
+
 const inquirer = require("inquirer");
 
 const { getConfig, updateConfig } = require("../src/config");
@@ -30,7 +32,7 @@ function start() {
       {
         type: "list",
         name: "task",
-        message: "Release 2 Gecko",
+        message: "Ship 2 MC",
         choices: Object.keys(tasks)
       }
     ])

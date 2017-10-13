@@ -7,6 +7,7 @@ const opn = require("opn");
 const gecko = require("./src/gecko");
 
 const github = require("./src/github");
+const bugzilla = require("./src/bugzilla");
 const git = require("./src/utils/git");
 
 const { createBug, uploadPatch } = require("./src/bugzilla");
@@ -54,7 +55,7 @@ async function updateRelease(config, options) {
 
   github.makeBundle(config);
 
-  gecko.showChanges(config);
+  gecko.showGeckoChanges(config);
 
   bumpVersion(config);
   gecko.updateCommit(config);
@@ -69,9 +70,7 @@ async function updateRelease(config, options) {
 
   // open firefox
   // and prompt to proceed
-  // makePatch(config);
   // await uploadPatch(config);
-  // start try run
 }
 
 function viewBug(config) {

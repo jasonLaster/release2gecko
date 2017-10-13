@@ -11,3 +11,7 @@ Ship 2 Gecko is a set of tools that make it easier to develop in Github and land
 3. Viewing open release bugs and try runs
 
 
+### Docs
+
+
+https://bugzilla.readthedocs.io/en/5.0/api/core/v1/attachment.html

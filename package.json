@@ -1,10 +1,10 @@
 {
-  "name": "release2mc",
-  "version": "0.0.1",
-  "description": "",
+  "name": "ship2mc",
+  "version": "0.0.4",
+  "description": "A tool for deploying github projects to MC",
   "main": "index.js",
   "bin": {
-    "r2": "./bin/r2.js"
+    "s2": "./bin/s2.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
