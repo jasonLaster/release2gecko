@@ -45,31 +45,16 @@ async function getAttachments(config) {
   });
 }
 
-async function createBug(config, overrides) {
+async function createBug(config, bug) {
   await login();
 
-  const bug = {
-    summary: `Update Debugger Release (${config.branch})`,
-    product: "Firefox",
-    component: "Developer Tools: Debugger",
-    version: "57 Branch",
-    // comments: [
-    //   // {
-    //   //   text: "something",
-    //   //   creator: user
-    //   // }
-    // ]
-    ...overrides
-  };
-
   return new Promise(resolve => {
-    bugzilla.createBug(bug, (e, r) => {
-      if (e) {
-        console.log(e);
+    bugzilla.createBug(bug, (error, response) => {
+      if (error) {
+        console.log({ error });
       }
 
-      console.log(r);
-      return r;
+      resolve(response);
     });
   });
 }
@@ -99,32 +84,27 @@ async function createAttachment(config) {
         content_type: "text/plain",
         data: new Buffer(patchText).toString("base64"),
         file_name: patchName,
-        obsolete: ["8918081"], // we'll need to add this
+        obsolete: [], // we'll need to add this
         is_private: false,
         flags: [reviewerFlag]
       },
       function(error, response) {
-        console.log({ error, response });
         resolve(response);
       }
     );
   });
 }
 
-async function deleteAttachment(config) {
-  const { bugId, reviewer } = config;
-
+async function deleteAttachment(id) {
   await login();
-  console.log(`deleting ${config.attachment}`);
   return new Promise(resolve => {
     bugzilla.updateAttachment(
-      config.attachment,
+      id,
       {
-        ids: [config.attachment],
+        ids: [id],
         is_obsolete: true
       },
       function(error, response) {
-        console.log({ error, response });
         resolve(response);
       }
     );
@@ -147,18 +127,6 @@ async function getAttachment() {
   //   // done();
   //   console.log(attachment);
   // });
-}
-
-async function uploadPatch(config) {
-  bugzilla = await login();
-  const text = getPatchText(config);
-  const patchName = getPatchName(config);
-  console.log(patchName);
-  return createAttachment(config.bug, {
-    text,
-    reviewer: config.reviewer,
-    patchName
-  });
 }
 
 // https://bugzilla.readthedocs.io/en/5.0/api/core/v1/attachment.html
@@ -184,7 +152,6 @@ module.exports = {
   deleteAttachment,
   createBug,
   login,
-  uploadPatch,
   getBug,
   getAttachments
 };

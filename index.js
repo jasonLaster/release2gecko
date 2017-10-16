@@ -10,28 +10,31 @@ const github = require("./src/github");
 const bugzilla = require("./src/bugzilla");
 const git = require("./src/utils/git");
 
-const { createBug, uploadPatch } = require("./src/bugzilla");
 const { getConfig, updateConfig } = require("./src/config");
 
 async function createRelease(config) {
-  const { exit } = await gecko.cleanupMc(config);
+  const { exit } = await gecko.cleanupBranch(config);
   if (exit) {
     return info("wave", "Exiting!");
   }
 
   updateConfig(config, { version: 1 });
-  gecko.updateCentral(config);
+  gecko.updateRepo(config);
   gecko.createBranch(config);
-  github.makeBundle(config);
-  gecko.createCommit(config);
 
+  github.makeBundle(config);
+  gecko.showBranchChanges(config);
+
+  await gecko.createBug(config);
+  await gecko.createCommit(config);
   gecko.buildFirefox(config);
 
   const results = gecko.runDebuggerTests(config);
 
   // NOTE: headless mode has 5 known failutes
   if (results.match(/Failed: 5/)) {
-    gecko.tryRun(config);
+    await gecko.tryRun(config);
+    await gecko.makePatch(config);
   }
 }
 
@@ -43,34 +46,32 @@ function bumpVersion(config) {
 
 async function updateRelease(config, options) {
   if (false && options.shouldFetch) {
-    const { exit } = await gecko.cleanupMc(config);
+    const { exit } = await gecko.cleanupBranch(config);
     if (exit) {
       return info("wave", "Exiting!");
     }
 
-    gecko.updateCentral(config);
+    gecko.updateRepo(config);
     gecko.checkoutBranch(config);
     gecko.rebaseBranch(config);
   }
 
   github.makeBundle(config);
-
-  gecko.showGeckoChanges(config);
+  gecko.showBranchChanges(config);
 
   bumpVersion(config);
-  gecko.updateCommit(config);
-  gecko.makePatch(config);
+  await gecko.updateCommit(config);
+
   gecko.buildFirefox(config);
   const results = gecko.runDebuggerTests(config);
 
-  // NOTE: headless mode has 5 known failutes
+  // NOTE: headless mode has 5 known failures
   if (results.match(/Failed: 5/)) {
-    gecko.tryRun(config);
+    await gecko.tryRun(config);
+    await gecko.makePatch(config);
+  } else {
+    log(results);
   }
-
-  // open firefox
-  // and prompt to proceed
-  // await uploadPatch(config);
 }
 
 function viewBug(config) {

@@ -26,7 +26,7 @@ async function promptChanges() {
   return nuke;
 }
 
-async function cleanupMc(config) {
+async function cleanupBranch(config) {
   info(":question: Checking for changes...");
 
   shell.cd(config.mcPath);
@@ -46,7 +46,7 @@ async function cleanupMc(config) {
   return {};
 }
 
-function showGeckoChanges(config) {
+function showBranchChanges(config) {
   shell.cd(config.mcPath);
   if (hasChanges(config)) {
     info(`Gecko changes:`);
@@ -54,7 +54,7 @@ function showGeckoChanges(config) {
   }
 }
 
-function updateCentral(config) {
+function updateRepo(config) {
   action(":runner: Updating Central!");
 
   shell.cd(config.mcPath);
@@ -87,6 +87,20 @@ function createBranch(config) {
   exec(`git checkout -b ${branch}`);
 }
 
+async function createBug(config) {
+  const title = `Update Debugger Frontend (${config.branch})`;
+  action(`Creating Bug: ${title}`);
+  const bugId = await bugzilla.createBug(config, {
+    summary: title,
+    product: "Firefox",
+    component: "Developer Tools: Debugger",
+    version: "57 Branch",
+    assigned_to: config.assignee
+  });
+
+  updateConfig(config, { bugId });
+}
+
 function fileExists(filePath) {
   const out = exec(`ls -l ${filePath}`);
   return out.stdout.trim() !== 0;
@@ -110,8 +124,13 @@ function buildFirefox(config) {
   }
 }
 
+function getReviewerName(email) {
+  return email.match(/^(.*)\@.*/)[1];
+}
+
 function commitMsg(config) {
-  return `Bug ${config.bugId} - Update Debugger frontend (${config.branch}). r=${config.reviewer}`;
+  const reviewerName = getReviewerName(config.reviewer);
+  return `Bug ${config.bugId} - Update Debugger frontend (${config.branch}). r=${reviewerName}`;
 }
 
 function createCommit(config) {
@@ -145,8 +164,9 @@ function updateCommit(config) {
   exec(`git commit -m "${msg}"`);
 }
 
-function makePatch(config) {
+async function makePatch(config) {
   shell.cd(config.mcPath);
+
   const patchPath = getPatchFilePath(config);
 
   exec(`
@@ -155,10 +175,16 @@ function makePatch(config) {
     less -m -N -g -i -J --underline-special --SILENT $FILE
   `);
 
-  // delete the old attachment
-  // await bugzilla.deleteAttachment(config);
+  action("Uploading patch");
 
-  const { id } = bugzilla.createAttachment(config);
+  const attachments = await bugzilla.getAttachments(config);
+  const attachmentIds = attachments.map(attachment => attachment.id);
+  for (attachmentId of attachmentIds) {
+    action(`Deleting attachment ${attachmentId}`);
+    await bugzilla.deleteAttachment(attachmentId);
+  }
+  const { id } = await bugzilla.createAttachment(config);
+
   updateConfig(config, { attachment: id });
 }
 
@@ -181,11 +207,11 @@ function runDebuggerTests(config) {
     }
   }
 
-  log(out);
+  // log(out);
   return out;
 }
 
-function tryRun(config) {
+async function tryRun(config) {
   action(":cactus: Creating a try run");
 
   shell.cd(config.mcPath);
@@ -207,19 +233,21 @@ function tryRun(config) {
     updateConfig(config, { try: tryRun });
 
     info(`> ${tryRun}`);
-    bugzilla.createComment(config.bugId, tryRun);
+    await bugzilla.createComment(config.bugId, tryRun);
   } else {
     log(out);
   }
 }
 
 module.exports = {
-  cleanupMc,
-  showGeckoChanges,
+  commitMsg,
+  cleanupBranch,
+  showBranchChanges,
   rebaseBranch,
-  updateCentral,
+  updateRepo,
   buildFirefox,
   createBranch,
+  createBug,
   createCommit,
   updateCommit,
   checkoutBranch,

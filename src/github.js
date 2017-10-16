@@ -2,19 +2,6 @@ const { exec } = require("./utils");
 const { log, action, error, info } = require("./utils/log");
 const { hasChanges, showChanges } = require("./utils/git");
 const shell = require("shelljs");
-//
-// async function commitChanges() {
-//   const { nuke } = await inquirer.prompt([
-//     {
-//       type: "confirm",
-//       name: "nuke",
-//       message: "Exit?",
-//       default: true
-//     }
-//   ]);
-//
-//   return nuke;
-// }
 
 function makeBundle(config) {
   action(":computer: Making bundle");
@@ -33,7 +20,9 @@ function makeBundle(config) {
   }
 
   exec(`git add .`);
-  exec(`git commit -m \"Update Release (${config.version})\"`);
+  exec(
+    `git commit -m \"Update Release (${config.branch}) v${config.version}\"`
+  );
   exec(`git push me ${config.branch}`);
 }
 
