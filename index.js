@@ -1,3 +1,4 @@
+const inquirer = require("inquirer");
 const path = require("path");
 const shell = require("shelljs");
 
@@ -34,7 +35,7 @@ async function createRelease(config) {
   // NOTE: headless mode has 5 known failutes
   if (results.match(/Failed: 5/)) {
     await gecko.tryRun(config);
-    await gecko.makePatch(config);
+    await gecko.publishPatch(config);
   }
 }
 
@@ -44,8 +45,32 @@ function bumpVersion(config) {
   updateConfig(config, { version });
 }
 
+async function updateWizard() {
+  return inquirer.prompt([
+    {
+      type: "confirm",
+      name: "resetMC",
+      message: "Reset MC?",
+      default: false
+    },
+    {
+      type: "confirm",
+      name: "updateBundle",
+      message: "Update Bundle?",
+      default: true
+    },
+    {
+      type: "confirm",
+      name: "updateBug",
+      message: "Update Bug?",
+      default: true
+    }
+  ]);
+}
+
 async function updateRelease(config, options) {
-  if (false && options.shouldFetch) {
+  const prompts = await updateWizard();
+  if (prompts.resetMC) {
     const { exit } = await gecko.cleanupBranch(config);
     if (exit) {
       return info("wave", "Exiting!");
@@ -54,23 +79,32 @@ async function updateRelease(config, options) {
     gecko.updateRepo(config);
     gecko.checkoutBranch(config);
     gecko.rebaseBranch(config);
+    gecko.showBranchChanges(config);
+  } else {
+    gecko.checkoutBranch(config);
   }
 
-  github.makeBundle(config);
-  gecko.showBranchChanges(config);
+  if (prompts.updateBundle) {
+    github.makeBundle(config);
+    gecko.showBranchChanges(config);
 
-  bumpVersion(config);
-  await gecko.updateCommit(config);
+    bumpVersion(config);
+    gecko.updateCommit(config);
+  }
 
   gecko.buildFirefox(config);
-  const results = gecko.runDebuggerTests(config);
 
-  // NOTE: headless mode has 5 known failures
-  if (results.match(/Failed: 5/)) {
-    await gecko.tryRun(config);
-    await gecko.makePatch(config);
-  } else {
-    log(results);
+  if (prompts.updateBundle) {
+    const results = gecko.runDebuggerTests(config);
+
+    // NOTE: headless mode has 5 known failures
+    const fails = results.match(/Failed: (\d+)/)[1];
+    if (+fails <= 7) {
+      await gecko.tryRun(config);
+      await gecko.publishPatch(config);
+    } else {
+      log(results);
+    }
   }
 }
 
@@ -95,6 +129,16 @@ function pruneMCBranches(config) {
   git.deleteBranches();
 }
 
+async function publishPatch(config, params) {
+  const bugId = params[0];
+  if (!bugId) {
+    return error("Bug must be set");
+  }
+  config.bugId = bugId;
+  await gecko.publishPatch(config);
+  await gecko.tryRun(config);
+}
+
 module.exports = {
   createRelease,
   bumpVersion,
@@ -102,5 +146,6 @@ module.exports = {
   viewBug,
   viewTry,
   pruneMCBranches,
-  pruneGHBranches
+  pruneGHBranches,
+  publishPatch
 };

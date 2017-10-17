@@ -5,8 +5,10 @@ const fs = require("fs");
 const _ = require("lodash");
 const emoji = require("node-emoji");
 const os = require("os");
+const debug = require("debug")("S2G");
 
 function exec(cmd) {
+  debug(cmd);
   const out = shell.exec(cmd, { silent: true });
   return out;
 }

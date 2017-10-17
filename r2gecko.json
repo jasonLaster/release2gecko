@@ -1,0 +1,10 @@
+{
+  "mcPath": "~/src/mozilla/gecko",
+  "ghPath": "~/src/mozilla/debugger.html",
+  "bugId": "1408562",
+  "branch": "10-13",
+  "reviewer": "jlaster@mozilla.com",
+  "version": 13,
+  "try": "https://treeherder.mozilla.org/#/jobs?repo=try&revision=677bbd1a8fab99ea0bac49949cf893f23dd7b597",
+  "attachment": 8919376
+}

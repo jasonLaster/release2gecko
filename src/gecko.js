@@ -64,14 +64,15 @@ function updateRepo(config) {
 }
 
 function checkoutBranch(config) {
-  const branch = config.branch;
-  info(`:ledger: Checking out branch ${branch}`);
-  return exec(`git checkout ${branch}`);
+  info(`:ledger: Checking out branch ${config.branch}`);
+  shell.cd(config.mcPath);
+  return exec(`git checkout ${config.branch}`);
 }
 
 function rebaseBranch(config) {
   const branch = config.branch;
-  return exec(`git rebase bookmarks/central`);
+  // return exec(`git rebase bookmarks/central`);
+  //  g reset --hard bookmarks/central; git cp  6f8ce5b9950e243f71647b5dfcf8d14a97852c09
 }
 
 function createBranch(config) {
@@ -146,11 +147,16 @@ function updateCommit(config) {
   shell.cd(config.mcPath);
   exec(`git add .`);
 
-  // 1. create new patch branch
-  // 2. commit the changes
-  // 3. rebase the changes
-  // 4. squash the commits
   const patchBranch = `${config.branch}-${config.version}`;
+
+  const patchIsHead = exec(`git log HEAD -n1 --oneline`).out.match(
+    /Update Debugger/
+  );
+
+  if (!patchIsHead) {
+    info("The patch commit is missing. Creating a new commit.");
+    return createCommit(config);
+  }
 
   exec(`git add .`);
   exec(`git commit -m "Patch ${config.version}"`);
@@ -164,7 +170,7 @@ function updateCommit(config) {
   exec(`git commit -m "${msg}"`);
 }
 
-async function makePatch(config) {
+async function publishPatch(config) {
   shell.cd(config.mcPath);
 
   const patchPath = getPatchFilePath(config);
@@ -175,14 +181,14 @@ async function makePatch(config) {
     less -m -N -g -i -J --underline-special --SILENT $FILE
   `);
 
-  action("Uploading patch");
-
   const attachments = await bugzilla.getAttachments(config);
   const attachmentIds = attachments.map(attachment => attachment.id);
   for (attachmentId of attachmentIds) {
     action(`Deleting attachment ${attachmentId}`);
     await bugzilla.deleteAttachment(attachmentId);
   }
+
+  action(`:point_up_2: Uploading patch to ${config.branch}`);
   const { id } = await bugzilla.createAttachment(config);
 
   updateConfig(config, { attachment: id });
@@ -251,7 +257,7 @@ module.exports = {
   createCommit,
   updateCommit,
   checkoutBranch,
-  makePatch,
+  publishPatch,
   runDebuggerTests,
   tryRun
 };

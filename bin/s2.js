@@ -11,20 +11,23 @@ const tasks = {
   "View current bug": cmds.viewBug,
   "View current try run": cmds.viewTry,
   "Remove GH Branches": cmds.pruneGHBranches,
-  "Remove MC Branches": cmds.pruneMCBranches
+  "Remove MC Branches": cmds.pruneMCBranches,
+  "Publish Patch": cmds.publishPatch
 };
 
 const taskCmd = {
   "-c": cmds.createRelease,
   "-u": cmds.updateRelease,
+  "-p": cmds.publishPatch,
   "-b": cmds.viewBug,
   "-t": cmds.viewTry
 };
 
 function start() {
-  if (process.argv.length === 3) {
+  if (process.argv.length > 2) {
     const task = process.argv[2];
-    return taskCmd[task](config);
+    const params = process.argv.slice(3);
+    return taskCmd[task](config, params);
   }
 
   inquirer

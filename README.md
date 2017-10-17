@@ -44,7 +44,7 @@ const results = gecko.runDebuggerTests(config);
 // NOTE: headless mode has 5 known failutes
 if (results.match(/Failed: 5/)) {
   await gecko.tryRun(config);
-  await gecko.makePatch(config);
+  await gecko.publishPatch(config);
 }
 ```
 
@@ -74,7 +74,7 @@ const results = gecko.runDebuggerTests(config);
 // NOTE: headless mode has 5 known failures
 if (results.match(/Failed: 5/)) {
   await gecko.tryRun(config);
-  await gecko.makePatch(config);
+  await gecko.publishPatch(config);
 } else {
   log(results);
 }
@@ -92,7 +92,7 @@ for other workflows. We can always make the commands more granular as well.
 *  rebaseBranch
 *  updateRepo
 *  createBug
-*  makePatch
+*  publishPatch
 *  createCommit
 *  updateCommit
 *  buildFirefox
