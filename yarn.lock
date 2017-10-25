@@ -27,9 +27,9 @@ brace-expansion@^1.1.7:
     balanced-match "^1.0.0"
     concat-map "0.0.1"
 
-bz@^0.4.5:
+bz@jasonLaster/bz.js#attachments:
   version "0.4.5"
-  resolved "https://registry.yarnpkg.com/bz/-/bz-0.4.5.tgz#a97f31b4b65e95ae95603f524981d4a6deb19908"
+  resolved "https://codeload.github.com/jasonLaster/bz.js/tar.gz/88699cbe88f32a776ecf05d7f3fe184a93bc1bd6"
   dependencies:
     xmlhttprequest "^1.7.0"
 

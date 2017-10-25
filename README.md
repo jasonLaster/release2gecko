@@ -20,6 +20,20 @@ Ship 2 Gecko is a set of tools that make it easier to develop in Github and land
 *  Remove MC Branches
 
 
+### Getting Started
+
+At some point, the [tool][s2g] will be good enough so that you can `npm i -g ship2gecko`
+and call `s2` directly. That day is not today :)
+
+1. `git clone https://github.com/jasonLaster/ship2gecko.git`
+2. `cd ship2gecko; yarn`
+3. `npm link`
+
+You should be able to now call `s2` globally, and then modify the source
+directly in `ship2gecko`.
+
+---
+
 ### Creating a Release
 
 ```js
@@ -130,7 +144,8 @@ The config is a small JSON file used for keeping
   "assignee": "jlaster@mozilla.com",
   "version": 1,
   "try":
-    "https://treeherder.mozilla.org/#/jobs?repo=try&revision=5073d499d082803f7ae7678bbcdb59be79a76b30",
-  "attachment": 8918465
+    "https://treeherder.mozilla.org/#/jobs?repo=try&revision=5073d499d082803f7ae7678bbcdb59be79a76b30"
 }
 ```
+
+[s2g]:https://github.com/jasonLaster/ship2gecko.git

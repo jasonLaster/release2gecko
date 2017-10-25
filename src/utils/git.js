@@ -48,9 +48,14 @@ async function deleteBranches(config) {
   log(out.stdout);
 }
 
+function branchHead(filePath = "") {
+  return exec(`git log HEAD -n1 --oneline ${filePath}`).stdout;
+}
+
 module.exports = {
   branchExists,
   hasChanges,
   showChanges,
+  branchHead,
   deleteBranches
 };

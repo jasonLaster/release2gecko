@@ -27,7 +27,11 @@ function start() {
   if (process.argv.length > 2) {
     const task = process.argv[2];
     const params = process.argv.slice(3);
-    return taskCmd[task](config, params);
+    try {
+      return taskCmd[task](config, params);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   inquirer
@@ -39,7 +43,13 @@ function start() {
         choices: Object.keys(tasks)
       }
     ])
-    .then(answers => tasks[answers.task](config));
+    .then(answers => {
+      try {
+        tasks[answers.task](config);
+      } catch (e) {
+        console.error(e);
+      }
+    });
 }
 
 let config = getConfig();

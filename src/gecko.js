@@ -1,9 +1,17 @@
 const inquirer = require("inquirer");
 const shell = require("shelljs");
 const chalk = require("chalk");
+const debug = require("debug")("S2G");
+const fs = require("fs");
+const path = require("path");
 
-const { branchExists, hasChanges, showChanges } = require("./utils/git");
-const { exec } = require("./utils");
+const {
+  branchExists,
+  hasChanges,
+  showChanges,
+  branchHead
+} = require("./utils/git");
+const { exec, replaceTilde } = require("./utils");
 const { log, info, error, action } = require("./utils/log");
 const { getPatchFilePath } = require("./utils/patch");
 const { updateConfig } = require("./config");
@@ -27,8 +35,6 @@ async function promptChanges() {
 }
 
 async function cleanupBranch(config) {
-  info(":question: Checking for changes...");
-
   shell.cd(config.mcPath);
   if (hasChanges(config)) {
     info(":question: Hmm, there are changes.");
@@ -60,7 +66,7 @@ function updateRepo(config) {
   shell.cd(config.mcPath);
   exec(`git checkout bookmarks/central`);
   exec(`git fetch mozilla`);
-  exec(`git rebase mozilla/central`);
+  exec(`git reset --hard mozilla/central;`);
 }
 
 function checkoutBranch(config) {
@@ -71,8 +77,20 @@ function checkoutBranch(config) {
 
 function rebaseBranch(config) {
   const branch = config.branch;
-  // return exec(`git rebase bookmarks/central`);
-  //  g reset --hard bookmarks/central; git cp  6f8ce5b9950e243f71647b5dfcf8d14a97852c09
+  shell.cd(config.mcPath);
+
+  const hasPatch = isPatchOnHead();
+  const head = exec(`git log HEAD -n1 --oneline`).stdout;
+  const sha = head.match(/^(\w+)/)[1];
+
+  action(`Resetting off of central`);
+  exec(`git checkout ${config.branch}`);
+  exec(`git reset --hard bookmarks/central;`);
+
+  if (hasPatch) {
+    action(`Cherry Picking ${head}`);
+    exec(`git cherry-pick ${sha}`);
+  }
 }
 
 function createBranch(config) {
@@ -116,13 +134,8 @@ function buildFirefox(config) {
     return { exit: true };
   }
 
-  const res = exec(`./mach clobber && ./mach build`);
-  if (res.code !== 0) {
-    info(`STDOUT`);
-    log(res.stdout);
-    info(`STDERR`);
-    log(res.stderr);
-  }
+  exec(`./mach clobber`);
+  exec(`./mach build`);
 }
 
 function getReviewerName(email) {
@@ -137,31 +150,57 @@ function commitMsg(config) {
 function createCommit(config) {
   action(":dizzy: Creating commit");
   shell.cd(config.mcPath);
+
+  if (checkForBullies(config)) {
+    return { exit: true };
+  }
+
   const msg = commitMsg(config);
   exec(`git add .`);
   exec(`git commit -m "${msg}"`);
 }
 
+function isPatchOnHead(filePath = "") {
+  return branchHead(filePath).match(/Update Debugger/);
+}
+
+function checkForBullies() {
+  const paths = [
+    "devtools/client/preferences/debugger.js",
+    "devtools/client/locales/en-US/debugger.properties",
+    "devtools/client/debugger/new"
+  ];
+
+  let bully = false;
+  for (filePath of paths) {
+    if (!isPatchOnHead(filePath)) {
+      error(`Uh oh, looks like there was a recent change: ${filePath}`);
+      bully = true;
+    }
+  }
+
+  return bully;
+}
+
 function updateCommit(config) {
-  action(":dizzy: Updating commit");
   shell.cd(config.mcPath);
-  exec(`git add .`);
 
   const patchBranch = `${config.branch}-${config.version}`;
 
-  const patchIsHead = exec(`git log HEAD -n1 --oneline`).out.match(
-    /Update Debugger/
-  );
+  if (checkForBullies(config)) {
+    return { exit: true };
+  }
 
-  if (!patchIsHead) {
+  if (!isPatchOnHead()) {
     info("The patch commit is missing. Creating a new commit.");
     return createCommit(config);
   }
 
+  action(":dizzy: Updating commit");
   exec(`git add .`);
   exec(`git commit -m "Patch ${config.version}"`);
 
-  info(`:book: View changes at branch ${patchBranch}`);
+  info(`:book: View changes: git show ${patchBranch}`);
   exec(`git checkout -b ${patchBranch}`);
   exec(`git checkout ${config.branch}`);
 
@@ -189,15 +228,39 @@ async function publishPatch(config) {
   }
 
   action(`:point_up_2: Uploading patch to ${config.branch}`);
-  const { id } = await bugzilla.createAttachment(config);
 
-  updateConfig(config, { attachment: id });
+  try {
+    await bugzilla.createAttachment(config);
+  } catch (e) {}
+}
+
+function checkMozConfig(config) {
+  const mozconfig = `
+    # Automatically download and use compiled C++ components:
+    ac_add_options --enable-artifact-builds
+    mk_add_options MOZ_OBJDIR=./objdir-frontend
+    ac_add_options --enable-optimize
+  `
+    .split("\n")
+    .map(l => l.trim())
+    .join("\n");
+
+  const mozconfigPath = path.join(replaceTilde(config.mcPath), "mozconfig");
+
+  shell.cd(config.mcPath);
+  if (fs.existsSync(mozconfigPath)) {
+    return;
+  }
+
+  action(`Creating mozconfig at ${mozconfigPath}`);
+  fs.writeFileSync(mozconfigPath, mozconfig);
 }
 
 function runDebuggerTests(config) {
-  action(":runner: Running debugger tests");
-
   shell.cd(config.mcPath);
+  checkMozConfig(config);
+
+  action(":runner: Running debugger tests");
   const out = exec(
     `./mach mochitest --setenv MOZ_HEADLESS=1 devtools/client/debugger/new`
   );
@@ -259,5 +322,6 @@ module.exports = {
   checkoutBranch,
   publishPatch,
   runDebuggerTests,
-  tryRun
+  tryRun,
+  checkMozConfig
 };

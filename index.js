@@ -64,6 +64,12 @@ async function updateWizard() {
       name: "updateBug",
       message: "Update Bug?",
       default: true
+    },
+    {
+      type: "confirm",
+      name: "runTests",
+      message: "Run Tests?",
+      default: true
     }
   ]);
 }
@@ -85,21 +91,25 @@ async function updateRelease(config, options) {
   }
 
   if (prompts.updateBundle) {
+    bumpVersion(config);
+
     github.makeBundle(config);
     gecko.showBranchChanges(config);
-
-    bumpVersion(config);
     gecko.updateCommit(config);
+    gecko.buildFirefox(config);
   }
 
-  gecko.buildFirefox(config);
+  if (prompts.updateBug) {
+    let shouldPublish = true;
+    if (prompts.runTests) {
+      const results = gecko.runDebuggerTests(config);
+      const fails = results.match(/Failed: (\d+)/)[1];
+      const passes = results.match(/Passed: (\d+)/)[1];
+      // NOTE: headless mode has 7 known failures
+      shouldPublish = +fails <= 7 && +passes > 0;
+    }
 
-  if (prompts.updateBundle) {
-    const results = gecko.runDebuggerTests(config);
-
-    // NOTE: headless mode has 5 known failures
-    const fails = results.match(/Failed: (\d+)/)[1];
-    if (+fails <= 7) {
+    if (shouldPublish) {
       await gecko.tryRun(config);
       await gecko.publishPatch(config);
     } else {

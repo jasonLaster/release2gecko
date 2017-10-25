@@ -1,6 +1,6 @@
 const { exec } = require("./utils");
 const { log, action, error, info } = require("./utils/log");
-const { hasChanges, showChanges } = require("./utils/git");
+const { hasChanges, showChanges, branchHead } = require("./utils/git");
 const shell = require("shelljs");
 
 function makeBundle(config) {
@@ -20,24 +20,27 @@ function makeBundle(config) {
   }
 
   exec(`git add .`);
-  exec(
-    `git commit -m \"Update Release (${config.branch}) v${config.version}\"`
-  );
-  exec(`git push me ${config.branch}`);
+
+  if (branchHead().includes("Update Release")) {
+    exec(`git commit --amend --no-verify --no-edit`);
+  } else {
+    exec(`git commit -m \"Update Release (${config.branch})"`);
+  }
+
+  exec(`git push me ${config.branch} --force --no-verify`);
 }
 
 function createBranch(branch) {
   action(`:shovel: Creating Branch`);
 
   if (branchExists(branch)) {
-    exec(`git checkout ${branch}`);
+    return exec(`git checkout ${branch}`);
   }
 
   exec(`git clean -fx && git reset --hard HEAD`);
   exec(`git checkout master`);
   exec(`git rpull`);
-
-  exec();
+  exec(`git checkout -b ${branch}`);
 }
 
 module.exports = {

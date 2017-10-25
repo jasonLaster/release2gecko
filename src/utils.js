@@ -6,10 +6,21 @@ const _ = require("lodash");
 const emoji = require("node-emoji");
 const os = require("os");
 const debug = require("debug")("S2G");
+const { error } = require("./utils/log");
 
 function exec(cmd) {
-  debug(cmd);
   const out = shell.exec(cmd, { silent: true });
+  debug({
+    cmd,
+    stdout: out.stdout.slice(0, 100),
+    stderr: out.stderr.slice(0, 100)
+  });
+
+  if (out.code !== 0) {
+    error(`Uhoh, ${cmd} failed!`);
+    console.log(out.stderr);
+  }
+
   return out;
 }
 

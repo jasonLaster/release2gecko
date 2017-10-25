@@ -89,6 +89,10 @@ async function createAttachment(config) {
         flags: [reviewerFlag]
       },
       function(error, response) {
+        if (error) {
+          console.log("oops");
+          reject(error);
+        }
         resolve(response);
       }
     );
