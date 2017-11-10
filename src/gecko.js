@@ -37,7 +37,7 @@ async function promptChanges() {
 async function cleanupBranch(config) {
   shell.cd(config.mcPath);
   if (hasChanges(config)) {
-    info(":question: Hmm, there are changes.");
+    info(":question: Hmm, there are changes in mc.");
     showChanges();
 
     const nuke = await promptChanges();
@@ -280,12 +280,34 @@ function runDebuggerTests(config) {
   return out;
 }
 
+function getTryRun(out) {
+  const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
+  if (match) {
+    const tryRun = match[0];
+    return tryRun;
+  } else {
+    log(out);
+    return false;
+  }
+}
+
 async function tryRun(config) {
   action(":cactus: Creating a try run");
 
   shell.cd(config.mcPath);
 
   let out;
+
+  if (true) {
+    const out = exec(
+      `./mach try -b do -p linux64,macosx64,win32,win64 -u mochitest-clipboard-e10s,mochitest-e10s-dt -t none --rebuild 10 devtools/client/debugger/new`
+    );
+
+    const tryRun = getTryRun(out);
+    if (tryRun) {
+      await bugzilla.createComment(config.bugId, tryRun);
+    }
+  }
 
   if (true) {
     out = exec(

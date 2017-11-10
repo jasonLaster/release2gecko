@@ -22,7 +22,7 @@ function makeBundle(config) {
   exec(`git add .`);
 
   if (branchHead().includes("Update Release")) {
-    exec(`git commit --amend --no-verify --no-edit`);
+    exec(`git commit --amend --allow-empty --no-verify --no-edit`);
   } else {
     exec(`git commit -m \"Update Release (${config.branch})"`);
   }

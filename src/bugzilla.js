@@ -73,7 +73,7 @@ async function createAttachment(config) {
   const patchName = getPatchName(config);
 
   await login();
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     bugzilla.createAttachment(
       bugId,
       {
@@ -90,7 +90,7 @@ async function createAttachment(config) {
       },
       function(error, response) {
         if (error) {
-          console.log("oops");
+          console.log(error);
           reject(error);
         }
         resolve(response);
