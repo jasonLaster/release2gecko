@@ -60,13 +60,13 @@ function showBranchChanges(config) {
   }
 }
 
-function updateRepo(config) {
-  action(":runner: Updating Central!");
+function updateRepo(config, branch = "central") {
+  action(`:runner: Updating ${branch}!`);
 
   shell.cd(config.mcPath);
-  exec(`git checkout bookmarks/central`);
+  exec(`git checkout bookmarks/${branch}`);
   exec(`git fetch mozilla`);
-  exec(`git reset --hard mozilla/central;`);
+  exec(`git reset --hard mozilla/${branch};`);
 }
 
 function checkoutBranch(config) {
@@ -129,11 +129,7 @@ function buildFirefox(config) {
   action(":seedling: Building Firefox");
   shell.cd(config.mcPath);
 
-  if (!fileExists("mozconfig")) {
-    error("Uhoh, the mozconfig does not exist.");
-    return { exit: true };
-  }
-
+  checkMozConfig(config);
   exec(`./mach clobber`);
   exec(`./mach build`);
 }
@@ -150,10 +146,6 @@ function commitMsg(config) {
 function createCommit(config) {
   action(":dizzy: Creating commit");
   shell.cd(config.mcPath);
-
-  if (checkForBullies(config)) {
-    return { exit: true };
-  }
 
   const msg = commitMsg(config);
   exec(`git add .`);
@@ -179,7 +171,11 @@ function checkForBullies() {
     }
   }
 
-  return bully;
+  if (bully) {
+    return { exit: true };
+  }
+
+  return {};
 }
 
 function updateCommit(config) {
@@ -239,7 +235,7 @@ function checkMozConfig(config) {
     # Automatically download and use compiled C++ components:
     ac_add_options --enable-artifact-builds
     mk_add_options MOZ_OBJDIR=./objdir-frontend
-    ac_add_options --enable-optimize
+    # ac_add_options --enable-optimize
   `
     .split("\n")
     .map(l => l.trim())
@@ -265,6 +261,7 @@ function runDebuggerTests(config) {
     `./mach mochitest --setenv MOZ_HEADLESS=1 devtools/client/debugger/new`
   );
 
+  console.log(out.stdout, out.stderr);
   if (out.stdout) {
     const match = out.stdout.match(/(Browser Chrome Test Summary(.|\n)*)/);
     if (match) {
@@ -292,7 +289,7 @@ function getTryRun(out) {
 }
 
 async function tryRun(config) {
-  action(":cactus: Creating a try run");
+  action(":cactus: Creating try run");
 
   shell.cd(config.mcPath);
 
@@ -318,15 +315,9 @@ async function tryRun(config) {
     out = exec(`./mach try -b o -p linux64 -u mochitests -t none`);
   }
 
-  const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
-  if (match) {
-    const tryRun = match[0];
-    updateConfig(config, { try: tryRun });
-
-    info(`> ${tryRun}`);
+  const tryRun = getTryRun(out);
+  if (tryRun) {
     await bugzilla.createComment(config.bugId, tryRun);
-  } else {
-    log(out);
   }
 }
 
@@ -345,5 +336,6 @@ module.exports = {
   publishPatch,
   runDebuggerTests,
   tryRun,
-  checkMozConfig
+  checkMozConfig,
+  checkForBullies
 };

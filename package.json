@@ -1,5 +1,5 @@
 {
-  "name": "ship2mc",
+  "name": "ship2gecko",
   "version": "0.0.4",
   "description": "A tool for deploying github projects to MC",
   "main": "index.js",

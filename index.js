@@ -70,6 +70,18 @@ async function updateWizard() {
       name: "runTests",
       message: "Run Tests?",
       default: true
+    },
+    {
+      type: "confirm",
+      name: "tryRuns",
+      message: "Create Try Runs?",
+      default: true
+    },
+    {
+      type: "confirm",
+      name: "checkBullies",
+      message: "Check for MC Changes?",
+      default: true
     }
   ]);
 }
@@ -95,13 +107,20 @@ async function updateRelease(config, options) {
 
     github.makeBundle(config);
     gecko.showBranchChanges(config);
+    if (!prompts.checkBullies) {
+      const { exit } = gecko.checkForBullies(config);
+      if (exit) {
+        return info("wave", "Exiting!");
+      }
+    }
+
     gecko.updateCommit(config);
-    gecko.buildFirefox(config);
   }
 
   if (prompts.updateBug) {
     let shouldPublish = true;
     if (prompts.runTests) {
+      gecko.buildFirefox(config);
       const results = gecko.runDebuggerTests(config);
       const fails = results.match(/Failed: (\d+)/)[1];
       const passes = results.match(/Passed: (\d+)/)[1];
@@ -110,10 +129,17 @@ async function updateRelease(config, options) {
     }
 
     if (shouldPublish) {
-      await gecko.tryRun(config);
+      if (prompts.tryRuns) {
+        await gecko.tryRun(config);
+      }
+
       await gecko.publishPatch(config);
     } else {
-      log(results);
+      log(`done`);
+    }
+
+    if (!prompts.runTests) {
+      gecko.buildFirefox(config);
     }
   }
 }
