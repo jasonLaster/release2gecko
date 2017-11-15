@@ -1,4 +1,4 @@
-#!/Users/jlaster/.nvm/versions/node/v8.5.0/bin/node
+#!/usr/bin/env node
 
 const inquirer = require("inquirer");
 
