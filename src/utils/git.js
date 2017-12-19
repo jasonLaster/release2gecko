@@ -5,7 +5,7 @@ const shell = require("shelljs");
 const inquirer = require("inquirer");
 
 function branchExists(branch) {
-  const out = exec(`git rev-parse --verify ${branch}`, { silent: true });
+  const out = shell.exec(`git rev-parse --verify ${branch}`, { silent: true });
   return out.code === 0;
 }
 

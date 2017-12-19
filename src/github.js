@@ -3,7 +3,7 @@ const { log, action, error, info } = require("./utils/log");
 const { hasChanges, showChanges, branchHead } = require("./utils/git");
 const shell = require("shelljs");
 
-function makeBundle(config) {
+function makeBundle(config, { withAssets = true }) {
   action(":computer: Making bundle");
   shell.cd(config.ghPath);
 
@@ -12,13 +12,17 @@ function makeBundle(config) {
     showChanges(config);
   }
 
-  const res = exec(`node bin/copy-assets.js --mc ../gecko --assets`);
+  const assets = withAssets ? `--assets` : "";
+
+  const res = exec(`node bin/copy-assets.js --mc ../gecko ${assets}`);
   if (res.code != 0) {
     error("Failed to copy bundle");
     console.log(res.stderr);
     return { exit: true };
   }
+}
 
+function updateBranch(config) {
   exec(`git add .`);
 
   if (branchHead().includes("Update Release")) {
@@ -44,5 +48,6 @@ function createBranch(branch) {
 }
 
 module.exports = {
-  makeBundle
+  makeBundle,
+  updateBranch
 };

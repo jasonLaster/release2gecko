@@ -24,17 +24,18 @@ async function createRelease(config) {
   gecko.createBranch(config);
 
   github.makeBundle(config);
+  github.updateBranch(config);
   gecko.showBranchChanges(config);
 
   await gecko.createBug(config);
   await gecko.createCommit(config);
   gecko.buildFirefox(config);
 
-  const results = gecko.runDebuggerTests(config);
+  const passed = gecko.runDebuggerTests(config);
 
   // NOTE: headless mode has 5 known failutes
-  if (results.match(/Failed: 5/)) {
-    await gecko.tryRun(config);
+  if (passed) {
+    await gecko.startTryRuns(config, { uploadRun: true });
     await gecko.publishPatch(config);
   }
 }
@@ -67,6 +68,12 @@ async function updateWizard() {
     },
     {
       type: "confirm",
+      name: "checkBullies",
+      message: "Check for MC Changes?",
+      default: true
+    },
+    {
+      type: "confirm",
       name: "runTests",
       message: "Run Tests?",
       default: true
@@ -75,12 +82,6 @@ async function updateWizard() {
       type: "confirm",
       name: "tryRuns",
       message: "Create Try Runs?",
-      default: true
-    },
-    {
-      type: "confirm",
-      name: "checkBullies",
-      message: "Check for MC Changes?",
       default: true
     }
   ]);
@@ -106,6 +107,7 @@ async function updateRelease(config, options) {
     bumpVersion(config);
 
     github.makeBundle(config);
+    github.updateBranch(config);
     gecko.showBranchChanges(config);
     if (!prompts.checkBullies) {
       const { exit } = gecko.checkForBullies(config);
@@ -117,31 +119,36 @@ async function updateRelease(config, options) {
     gecko.updateCommit(config);
   }
 
-  if (prompts.updateBug) {
-    let shouldPublish = true;
-    if (prompts.runTests) {
-      gecko.buildFirefox(config);
-      const results = gecko.runDebuggerTests(config);
-      const fails = results.match(/Failed: (\d+)/)[1];
-      const passes = results.match(/Passed: (\d+)/)[1];
-      // NOTE: headless mode has 7 known failures
-      shouldPublish = +fails <= 7 && +passes > 0;
-    }
-
-    if (shouldPublish) {
-      if (prompts.tryRuns) {
-        await gecko.tryRun(config);
-      }
-
-      await gecko.publishPatch(config);
-    } else {
-      log(`done`);
-    }
-
-    if (!prompts.runTests) {
-      gecko.buildFirefox(config);
-    }
+  let testsPass = true;
+  if (prompts.runTests) {
+    gecko.buildFirefox(config);
+    testsPass = gecko.runDebuggerTests(config);
   }
+
+  if (prompts.tryRuns) {
+    await gecko.startTryRuns(config, { uploadRun: true });
+  }
+
+  if (prompts.updateBug && testsPass) {
+    await gecko.publishPatch(config);
+  }
+
+  if (!prompts.runTests) {
+    gecko.buildFirefox(config);
+  }
+}
+
+async function tryRuns(config, options) {
+  // gecko.createBranch(config);
+
+  // github.makeBundle(config, { withAssets: false });
+
+  if (false) {
+    gecko.buildFirefox(config);
+    testsPass = gecko.runDebuggerTests(config);
+  }
+
+  await gecko.startTryRuns(config, { uploadRun: false });
 }
 
 function viewBug(config) {
@@ -172,13 +179,14 @@ async function publishPatch(config, params) {
   }
   config.bugId = bugId;
   await gecko.publishPatch(config);
-  await gecko.tryRun(config);
+  await gecko.startTryRuns(config, { uploadRun: true });
 }
 
 module.exports = {
   createRelease,
   bumpVersion,
   updateRelease,
+  tryRuns,
   viewBug,
   viewTry,
   pruneMCBranches,

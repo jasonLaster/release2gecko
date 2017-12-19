@@ -8,6 +8,7 @@ const cmds = require("../index");
 const tasks = {
   "Create release": cmds.createRelease,
   "Update release": cmds.updateRelease,
+  "Start try runs": cmds.tryRuns,
   "View current bug": cmds.viewBug,
   "View current try run": cmds.viewTry,
   "Remove GH Branches": cmds.pruneGHBranches,
@@ -18,9 +19,10 @@ const tasks = {
 const taskCmd = {
   "-c": cmds.createRelease,
   "-u": cmds.updateRelease,
+  "-t": cmds.tryRuns,
   "-p": cmds.publishPatch,
   "-b": cmds.viewBug,
-  "-t": cmds.viewTry
+  "-v": cmds.viewTry
 };
 
 function start() {

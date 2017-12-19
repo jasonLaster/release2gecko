@@ -96,6 +96,7 @@ function rebaseBranch(config) {
 function createBranch(config) {
   const date = new Date();
   const branch = `${date.getMonth() + 1}-${date.getDate()}`;
+  shell.cd(config.mcPath);
 
   if (branchExists(branch)) {
     return checkoutBranch(config, branch);
@@ -114,7 +115,10 @@ async function createBug(config) {
     product: "Firefox",
     component: "Developer Tools: Debugger",
     version: "57 Branch",
-    assigned_to: config.assignee
+    assigned_to: config.assignee,
+    depends_on: {
+      set: [1412334]
+    }
   });
 
   updateConfig(config, { bugId });
@@ -140,7 +144,9 @@ function getReviewerName(email) {
 
 function commitMsg(config) {
   const reviewerName = getReviewerName(config.reviewer);
-  return `Bug ${config.bugId} - Update Debugger frontend (${config.branch}). r=${reviewerName}`;
+  return `Bug ${config.bugId} - Update Debugger frontend (${
+    config.branch
+  }). r=${reviewerName}`;
 }
 
 function createCommit(config) {
@@ -261,7 +267,6 @@ function runDebuggerTests(config) {
     `./mach mochitest --setenv MOZ_HEADLESS=1 devtools/client/debugger/new`
   );
 
-  console.log(out.stdout, out.stderr);
   if (out.stdout) {
     const match = out.stdout.match(/(Browser Chrome Test Summary(.|\n)*)/);
     if (match) {
@@ -274,21 +279,36 @@ function runDebuggerTests(config) {
   }
 
   // log(out);
-  return out;
+
+  const fails = +out.match(/Failed: (\d*)/)[1];
+  const passes = +out.match(/Passed: (\d*)/)[1];
+  const passed = +fails <= 7 && +passes > 0;
+  return passed;
 }
 
-function getTryRun(out) {
+const mochitestRuns = {
+  repeats: `./mach try -b do -p linux64,macosx64,win32,win64 -u mochitest-clipboard-e10s,mochitest-e10s-dt -t none --rebuild 10  --artifact devtools/client/debugger/new`,
+  debugger: `./mach try  -b do -p linux64 -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none --artifact`,
+  devtools: `./mach try -b o -p linux64 -u mochitests -t none --artifact`
+};
+
+async function tryRun(config, mochitest, { uploadRun = true }) {
+  const out = exec(mochitestRuns[mochitest]);
   const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
   if (match) {
     const tryRun = match[0];
-    return tryRun;
+    console.log(`[${mochitest}](${match})`);
+
+    if (uploadRun) {
+      await bugzilla.createComment(config.bugId, tryRun);
+    }
   } else {
     log(out);
     return false;
   }
 }
 
-async function tryRun(config) {
+async function startTryRuns(config, options) {
   action(":cactus: Creating try run");
 
   shell.cd(config.mcPath);
@@ -296,28 +316,15 @@ async function tryRun(config) {
   let out;
 
   if (true) {
-    const out = exec(
-      `./mach try -b do -p linux64,macosx64,win32,win64 -u mochitest-clipboard-e10s,mochitest-e10s-dt -t none --rebuild 10 devtools/client/debugger/new`
-    );
-
-    const tryRun = getTryRun(out);
-    if (tryRun) {
-      await bugzilla.createComment(config.bugId, tryRun);
-    }
+    await tryRun(config, "repeats", options);
   }
 
   if (true) {
-    out = exec(
-      `./mach try  -b do -p linux64 -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none --artifact`
-    );
-  } else {
-    // if we need to run a broader test...
-    out = exec(`./mach try -b o -p linux64 -u mochitests -t none`);
+    await tryRun(config, "debugger", options);
   }
 
-  const tryRun = getTryRun(out);
-  if (tryRun) {
-    await bugzilla.createComment(config.bugId, tryRun);
+  if (false) {
+    await tryRun(config, "devtools", options);
   }
 }
 
@@ -335,7 +342,7 @@ module.exports = {
   checkoutBranch,
   publishPatch,
   runDebuggerTests,
-  tryRun,
+  startTryRuns,
   checkMozConfig,
   checkForBullies
 };
