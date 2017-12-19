@@ -139,11 +139,10 @@ async function updateRelease(config, options) {
 }
 
 async function tryRuns(config, options) {
-  // gecko.createBranch(config);
+  gecko.createBranch(config);
+  github.makeBundle(config, { withAssets: false });
 
-  // github.makeBundle(config, { withAssets: false });
-
-  if (false) {
+  if (true) {
     gecko.buildFirefox(config);
     testsPass = gecko.runDebuggerTests(config);
   }
