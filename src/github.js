@@ -3,7 +3,7 @@ const { log, action, error, info } = require("./utils/log");
 const { hasChanges, showChanges, branchHead } = require("./utils/git");
 const shell = require("shelljs");
 
-function makeBundle(config, { withAssets = true }) {
+function makeBundle(config, { withAssets = true } = {}) {
   action(":computer: Making bundle");
   shell.cd(config.ghPath);
 

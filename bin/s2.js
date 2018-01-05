@@ -13,7 +13,8 @@ const tasks = {
   "View current try run": cmds.viewTry,
   "Remove GH Branches": cmds.pruneGHBranches,
   "Remove MC Branches": cmds.pruneMCBranches,
-  "Publish Patch": cmds.publishPatch
+  "Publish Patch": cmds.publishPatch,
+  "Update MC": cmds.updateMC
 };
 
 const taskCmd = {
@@ -22,7 +23,8 @@ const taskCmd = {
   "-t": cmds.tryRuns,
   "-p": cmds.publishPatch,
   "-b": cmds.viewBug,
-  "-v": cmds.viewTry
+  "-v": cmds.viewTry,
+  "-n": cmds.updateMC
 };
 
 function start() {

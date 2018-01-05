@@ -60,7 +60,20 @@ function showBranchChanges(config) {
   }
 }
 
-function updateRepo(config, branch = "central") {
+function updateMC(config) {
+  shell.cd(config.mcPath);
+
+  action(`:goat: Fetching mozilla`);
+  exec(`git fetch mozilla`);
+
+  ["beta", "inbound", "central"].forEach(branch => {
+    action(`:zap: Updating ${branch}`);
+    exec(`git checkout bookmarks/${branch}`);
+    exec(`git reset --hard mozilla/${branch};`);
+  });
+}
+
+function updateBranch(config, branch = "central") {
   action(`:runner: Updating ${branch}!`);
 
   shell.cd(config.mcPath);
@@ -115,10 +128,10 @@ async function createBug(config) {
     product: "Firefox",
     component: "Developer Tools: Debugger",
     version: "57 Branch",
-    assigned_to: config.assignee,
-    depends_on: {
-      set: [1412334]
-    }
+    assigned_to: config.assignee
+    // depends_on: {
+    //   set: [1412334]
+    // }
   });
 
   updateConfig(config, { bugId });
@@ -186,12 +199,9 @@ function checkForBullies() {
 
 function updateCommit(config) {
   shell.cd(config.mcPath);
+  action("Updating commit");
 
   const patchBranch = `${config.branch}-${config.version}`;
-
-  if (checkForBullies(config)) {
-    return { exit: true };
-  }
 
   if (!isPatchOnHead()) {
     info("The patch commit is missing. Creating a new commit.");
@@ -258,14 +268,31 @@ function checkMozConfig(config) {
   fs.writeFileSync(mozconfigPath, mozconfig);
 }
 
+const consoleTests = [
+  "jsterm_autocomplete_in_debugger_stackframe",
+  "webconsole_click_function_to_source",
+  "webconsole_closure_inspection",
+  "webconsole_eval_in_debugger_stackframe",
+  "webconsole_eval_in_debugger_stackframe2",
+  "webconsole_optimized_out_vars",
+  "webconsole_variables_view_while_debugging_and_inspecting",
+  "webconsole_variables_view_while_debugging"
+];
+
+function getTestPaths() {
+  return "devtools/client/debugger/new";
+  // return ["devtools/client/debugger/new"].concat(consoleTests).join(" ");
+}
+
 function runDebuggerTests(config) {
   shell.cd(config.mcPath);
   checkMozConfig(config);
 
   action(":runner: Running debugger tests");
-  const out = exec(
-    `./mach mochitest --setenv MOZ_HEADLESS=1 devtools/client/debugger/new`
-  );
+
+  const paths = getTestPaths();
+  const headless = "--setenv MOZ_HEADLESS=1";
+  const out = exec(`./mach mochitest ${headless} ${paths}`);
 
   if (out.stdout) {
     const match = out.stdout.match(/(Browser Chrome Test Summary(.|\n)*)/);
@@ -287,23 +314,25 @@ function runDebuggerTests(config) {
 }
 
 const mochitestRuns = {
-  repeats: `./mach try -b do -p linux64,macosx64,win32,win64 -u mochitest-clipboard-e10s,mochitest-e10s-dt -t none --rebuild 10  --artifact devtools/client/debugger/new`,
-  debugger: `./mach try  -b do -p linux64 -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none --artifact`,
+  repeats: `./mach try -b do -p linux64,macosx64,win32,win64 -u mochitest-clipboard-e10s,mochitest-e10s-dt -t none --rebuild 10 devtools/client/debugger/new`,
+  debugger: `./mach try  -b do -p linux64 -u mochitest-dt,mochitest-e10s-devtools-chrome,mochitest-o -t none`,
   devtools: `./mach try -b o -p linux64 -u mochitests -t none --artifact`
 };
 
 async function tryRun(config, mochitest, { uploadRun = true }) {
   const out = exec(mochitestRuns[mochitest]);
-  const match = out.stdout.concat(out.stderr).match(/(http.*treeherder.*)/);
+  const output = out.stdout.concat(out.stderr);
+  const match = output.match(/(http.*treeherder.*)/);
+
   if (match) {
     const tryRun = match[0];
-    console.log(`[${mochitest}](${match})`);
+    console.log(`[${mochitest}](${tryRun})`);
 
     if (uploadRun) {
       await bugzilla.createComment(config.bugId, tryRun);
     }
   } else {
-    log(out);
+    log(output);
     return false;
   }
 }
@@ -333,7 +362,8 @@ module.exports = {
   cleanupBranch,
   showBranchChanges,
   rebaseBranch,
-  updateRepo,
+  updateBranch,
+  updateMC,
   buildFirefox,
   createBranch,
   createBug,

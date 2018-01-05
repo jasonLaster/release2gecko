@@ -52,10 +52,15 @@ function branchHead(filePath = "") {
   return exec(`git log HEAD -n1 --oneline ${filePath}`).stdout;
 }
 
+function popHead() {
+  return exec(`git reset HEAD~1 --hard`);
+}
+
 module.exports = {
   branchExists,
   hasChanges,
   showChanges,
   branchHead,
-  deleteBranches
+  deleteBranches,
+  popHead
 };

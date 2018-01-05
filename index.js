@@ -4,6 +4,7 @@ const shell = require("shelljs");
 
 const { exec } = require("./src/utils");
 const { log, format, info, action } = require("./src/utils/log");
+const { popHead } = require("./src/utils/git");
 const opn = require("opn");
 const gecko = require("./src/gecko");
 
@@ -20,9 +21,8 @@ async function createRelease(config) {
   }
 
   updateConfig(config, { version: 1 });
-  gecko.updateRepo(config);
+  gecko.updateBranch(config);
   gecko.createBranch(config);
-
   github.makeBundle(config);
   github.updateBranch(config);
   gecko.showBranchChanges(config);
@@ -95,7 +95,7 @@ async function updateRelease(config, options) {
       return info("wave", "Exiting!");
     }
 
-    gecko.updateRepo(config);
+    gecko.updateBranch(config);
     gecko.checkoutBranch(config);
     gecko.rebaseBranch(config);
     gecko.showBranchChanges(config);
@@ -140,14 +140,25 @@ async function updateRelease(config, options) {
 
 async function tryRuns(config, options) {
   gecko.createBranch(config);
-  github.makeBundle(config, { withAssets: false });
+  github.makeBundle(config, { withAssets: true });
 
-  if (true) {
+  if (false) {
     gecko.buildFirefox(config);
     testsPass = gecko.runDebuggerTests(config);
+    if (!testsPass) {
+      info("Tests failed");
+      return;
+    }
   }
 
+  gecko.updateCommit(config);
+  popHead();
+
   await gecko.startTryRuns(config, { uploadRun: false });
+}
+
+function updateMC(config) {
+  gecko.updateMC(config);
 }
 
 function viewBug(config) {
@@ -185,6 +196,7 @@ module.exports = {
   createRelease,
   bumpVersion,
   updateRelease,
+  updateMC,
   tryRuns,
   viewBug,
   viewTry,
